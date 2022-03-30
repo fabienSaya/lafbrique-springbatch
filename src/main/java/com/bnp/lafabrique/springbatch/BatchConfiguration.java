@@ -68,7 +68,7 @@ public class BatchConfiguration {
                 .get("sampleJob")
                 .incrementer(new RunIdIncrementer())
                 .start(sampleStep())
-                //.start(moveFilesStep())
+                .next(moveFilesStep())
                 .build();
     }
 
@@ -84,13 +84,17 @@ public class BatchConfiguration {
                 //.taskExecutor(taskExecutor())
                 .build();
     }
-/*
+
     @Bean
     public Step moveFilesStep(){
+        RemoveProcessedFileTasklet tasklet=new RemoveProcessedFileTasklet();
+        tasklet.setResources(inputResources);
         return stepBuilderFactory
-                .get("moveFilesStep");
+                .get("moveFilesStep")
+                .tasklet(tasklet)
+                .build();
 
-    }*/
+    }
 
 
     @Bean
