@@ -22,20 +22,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 
 
-
+/**
+ * note: il me fait une exception au démarrage, mais à la 2eme occurence, ca marche. suffit d'attendre 8s pour que le scheduling lance une 2eme fois le job
+ */
 @Configuration
 @EnableBatchProcessing
 @EnableScheduling
 public class BatchConfiguration {
+
 
     @Autowired
     private JobBuilderFactory jobBuilderFactory; //va permettre de créer les jobs
@@ -43,8 +49,17 @@ public class BatchConfiguration {
     @Autowired
     private StepBuilderFactory stepBuilderFactory; //va permettre de créer les steps
 
-    @Value("classpath:input/users_input_*.csv")
+    //version si je met les fichier dans /resources/input
+    //@Value("classpath:input/users_input_*.csv")
+    //private Resource[] inputResources;
+
+    //version si on met les fichiers ailleurs que dans le répertoire resource
+    //private static final String RESOURCES_PATH="file:c:/temp/input_for_spring_batch_sample/users_input_*.csv";
+    //private Resource[] inputResources;
+
+    @Value("file:c:/temp/input_for_spring_batch_sample/users_input_*.csv")
     private Resource[] inputResources;
+
 
     /**
      * notre job a un seul step
@@ -56,6 +71,7 @@ public class BatchConfiguration {
                 .get("sampleJob")
                 .incrementer(new RunIdIncrementer())
                 .start(sampleStep())
+                //.start(moveFilesStep())
                 .build();
     }
 
@@ -71,6 +87,14 @@ public class BatchConfiguration {
                 //.taskExecutor(taskExecutor())
                 .build();
     }
+/*
+    @Bean
+    public Step moveFilesStep(){
+        return stepBuilderFactory
+                .get("moveFilesStep");
+
+    }*/
+
 
     @Bean
     public TaskExecutor taskExecutor() {
@@ -89,6 +113,15 @@ public class BatchConfiguration {
      */
     @Bean
     public MultiResourceItemReader<UserCSV> multiResourceItemReader() {
+
+        //version si on met les fichiers ailleurs que dans le répertoire resource
+        /*try {
+            inputResources = new PathMatchingResourcePatternResolver().getResources(RESOURCES_PATH);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }*/
+        //fin de cette version
+
         MultiResourceItemReader<UserCSV> reader = new MultiResourceItemReader<>();
         reader.setResources(inputResources);
         reader.setStrict(true);//lancera une exception si pas de resource dans input
