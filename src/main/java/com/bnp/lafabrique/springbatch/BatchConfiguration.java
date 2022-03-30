@@ -1,7 +1,16 @@
 package com.bnp.lafabrique.springbatch;
 
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
+import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.LineMapper;
 import org.springframework.batch.item.file.MultiResourceItemReader;
@@ -9,35 +18,92 @@ import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.file.transform.LineTokenizer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import javax.sql.DataSource;
+
 
 
 @Configuration
+@EnableBatchProcessing
+@EnableScheduling
 public class BatchConfiguration {
+
+    @Autowired
+    private JobBuilderFactory jobBuilderFactory; //va permettre de créer les jobs
+
+    @Autowired
+    private StepBuilderFactory stepBuilderFactory; //va permettre de créer les steps
 
     @Value("classpath:input/users_input_*.csv")
     private Resource[] inputResources;
 
+    /**
+     * notre job a un seul step
+     * @return
+     */
+    @Bean
+    public Job sampleJob() {
+        return jobBuilderFactory
+                .get("sampleJob")
+                .incrementer(new RunIdIncrementer())
+                .start(sampleStep())
+                .build();
+    }
+
+    @Bean
+    public Step sampleStep() {
+        return stepBuilderFactory
+                .get("sampleStep")
+                .<UserCSV,UserOut>chunk(2)//lire les lignes 2 par 2 (userCSV)
+                .reader(multiResourceItemReader())
+                .writer(writerJDBC())
+                .processor(processor())
+                .listener(new MyItemReaderListener())
+                //.taskExecutor(taskExecutor())
+                .build();
+    }
+
+    @Bean
+    public TaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(50);
+        return executor;
+    }
+
+
+    /**
+     * comme on gère le chargement de plusieurs fichiers on utilise un MultiResourceItemReader.
+     * Sinon, un flatFileItemReader aurait été suffisant
+     * @return
+     */
     @Bean
     public MultiResourceItemReader<UserCSV> multiResourceItemReader() {
         MultiResourceItemReader<UserCSV> reader = new MultiResourceItemReader<>();
         reader.setResources(inputResources);
         reader.setStrict(true);//lancera une exception si pas de resource dans input
-        reader.setDelegate(reader());
+        reader.setDelegate(readerFlatFile());
 
         return reader;
     }
 
     @Bean
-    public FlatFileItemReader<UserCSV> reader() {
+    public FlatFileItemReader<UserCSV> readerFlatFile() {
         FlatFileItemReader<UserCSV> reader = new FlatFileItemReader<>();
-        reader.setStrict(true);
+        //reader.setStrict(true);
         reader.setLineMapper(makeLineMapper());
         reader.setLinesToSkip(1);//on ignore la première ligne qui contient le header
-
+        reader.setStrict(true);
         return reader;
     }
 
@@ -46,14 +112,46 @@ public class BatchConfiguration {
         return new ToUpperCaseProcessor();
     }
 
-//    @Bean
-  //  public ItemWriter<UserOut>
+    @Bean
+    public ItemWriter<UserOut> writerJDBC() {
+       return new JdbcBatchItemWriterBuilder<UserOut>()
+               .dataSource(dataSource())
+               .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+               .sql("INSERT INTO USER (UID,NOM,PRENOM) VALUES(:uid, :nom, :prenom)")
+               .build();
+    }
+
+    /**
+     * on construit un data souce h2
+     * @return
+     */
+    @Bean
+    public DataSource dataSource() {
+        //hikari=framework qui implemente un pool de connexion. Il va avec spring batch
+        HikariDataSource dataSource=new HikariDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");//nom du driver h2
+        //dataSource.setJdbcUrl("jdbc:h2:tcp://localhost/~/userdb"); //url possible : http://www.h2database.com/html/features.html pour mode server
+        dataSource.setJdbcUrl("jdbc:h2:mem:userdb"); //url possible : http://www.h2database.com/html/features.html pour mode in memory
+        dataSource.setUsername("bnpp");
+        dataSource.setPassword("bnpp");
+        return dataSource;
+    }
+
+    /**
+     * permet de faire des requetes
+     * @return
+     */
+    @Bean
+    public JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate(dataSource());
+    }
+
 
     /**
      * décrit comment on lit une ligne
      * @return
      */
-    private LineMapper makeLineMapper(){
+    private DefaultLineMapper makeLineMapper(){
         DefaultLineMapper mapper = new DefaultLineMapper();
         mapper.setLineTokenizer(makeLineTokenizer());//comment on lit les champs
         mapper.setFieldSetMapper(makeBeanWrapperFieldSetMapper());//objet vers lequel on map les champs lus
@@ -80,6 +178,7 @@ public class BatchConfiguration {
         mapper.setTargetType(UserCSV.class);
         return mapper;
     }
+
 
 
 
