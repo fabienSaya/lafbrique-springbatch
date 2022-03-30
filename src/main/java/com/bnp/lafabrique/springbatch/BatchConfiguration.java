@@ -117,7 +117,7 @@ public class BatchConfiguration {
        return new JdbcBatchItemWriterBuilder<UserOut>()
                .dataSource(dataSource())
                .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-               .sql("INSERT INTO USER (UID,NOM,PRENOM) VALUES(:uid, :nom, :prenom)")
+               .sql("INSERT INTO USERS (UID,NOM,PRENOM) VALUES(:uid, :nom, :prenom)")
                .build();
     }
 
@@ -129,11 +129,13 @@ public class BatchConfiguration {
     public DataSource dataSource() {
         //hikari=framework qui implemente un pool de connexion. Il va avec spring batch
         HikariDataSource dataSource=new HikariDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");//nom du driver h2
+        //dataSource.setDriverClassName("org.h2.Driver");//nom du driver h2
+        dataSource.setDriverClassName("org.postgresql.Driver");//nom du driver h2
         //dataSource.setJdbcUrl("jdbc:h2:tcp://localhost/~/userdb"); //url possible : http://www.h2database.com/html/features.html pour mode server
-        dataSource.setJdbcUrl("jdbc:h2:mem:userdb"); //url possible : http://www.h2database.com/html/features.html pour mode in memory
-        dataSource.setUsername("bnpp");
-        dataSource.setPassword("bnpp");
+        //dataSource.setJdbcUrl("jdbc:h2:mem:userdb"); //url possible : http://www.h2database.com/html/features.html pour mode in memory
+        dataSource.setJdbcUrl("jdbc:postgresql://localhost:5432/userdb"); //base postgre
+        dataSource.setUsername("userjava");
+        dataSource.setPassword("userjava");
         return dataSource;
     }
 
