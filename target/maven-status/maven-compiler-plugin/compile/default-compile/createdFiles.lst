@@ -1,6 +1,0 @@
-com\bnp\lafabrique\springbatch\BatchJobLauncher.class
-com\bnp\lafabrique\springbatch\UserCSV.class
-com\bnp\lafabrique\springbatch\UserOut.class
-com\bnp\lafabrique\springbatch\BatchConfiguration.class
-com\bnp\lafabrique\springbatch\ToUpperCaseProcessor.class
-com\bnp\lafabrique\springbatch\MainStarter.class
