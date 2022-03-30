@@ -54,9 +54,6 @@ public class BatchConfiguration {
     //private Resource[] inputResources;
 
     //version si on met les fichiers ailleurs que dans le répertoire resource
-    //private static final String RESOURCES_PATH="file:c:/temp/input_for_spring_batch_sample/users_input_*.csv";
-    //private Resource[] inputResources;
-
     @Value("file:c:/temp/input_for_spring_batch_sample/users_input_*.csv")
     private Resource[] inputResources;
 
@@ -113,14 +110,6 @@ public class BatchConfiguration {
      */
     @Bean
     public MultiResourceItemReader<UserCSV> multiResourceItemReader() {
-
-        //version si on met les fichiers ailleurs que dans le répertoire resource
-        /*try {
-            inputResources = new PathMatchingResourcePatternResolver().getResources(RESOURCES_PATH);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
-        //fin de cette version
 
         MultiResourceItemReader<UserCSV> reader = new MultiResourceItemReader<>();
         reader.setResources(inputResources);
